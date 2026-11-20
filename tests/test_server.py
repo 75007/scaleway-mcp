@@ -19,6 +19,9 @@ EXPECTED_TOOLS = {
     "dedibox_list_servers",
     "dedibox_get_server",
     "dedibox_reboot_server",
+    "online_list_servers",
+    "online_get_server",
+    "online_reboot_server",
 }
 
 

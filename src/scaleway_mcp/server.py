@@ -6,7 +6,7 @@ from typing import Any, Literal
 
 from mcp.server.fastmcp import FastMCP
 
-from .client import DEFAULT_ZONE, ScalewayClient, ScalewayError
+from .client import DEFAULT_ZONE, OnlineClient, ScalewayClient, ScalewayError
 
 mcp = FastMCP(
     "scaleway",
@@ -22,6 +22,10 @@ ServerAction = Literal["poweron", "poweroff", "reboot", "stop_in_place", "backup
 
 def _client() -> ScalewayClient:
     return ScalewayClient.from_env()
+
+
+def _online_client() -> OnlineClient:
+    return OnlineClient.from_env()
 
 
 def _zone(zone: str | None) -> str:
@@ -116,6 +120,24 @@ def dedibox_get_server(server_id: str, zone: str | None = None) -> dict[str, Any
 def dedibox_reboot_server(server_id: str, zone: str | None = None, rescue: bool = False) -> dict[str, Any]:
     """Reboot a Dedibox server. Set rescue=true to reboot into rescue mode instead of normal boot."""
     return _run(lambda: _client().dedibox_reboot_server(_zone(zone), server_id, "rescue" if rescue else None))
+
+
+@mcp.tool()
+def online_list_servers() -> dict[str, Any]:
+    """List all Online/Dedibox VPS and servers on the account (legacy api.online.net API, uses DEDIBOX_API_TOKEN)."""
+    return _run(lambda: _online_client().list_servers())
+
+
+@mcp.tool()
+def online_get_server(server_id: str) -> dict[str, Any]:
+    """Get details of one Online/Dedibox VPS (public IP, boot mode, state) by its numeric server id."""
+    return _run(lambda: _online_client().get_server(server_id))
+
+
+@mcp.tool()
+def online_reboot_server(server_id: str, reason: str | None = None) -> dict[str, Any]:
+    """Reboot an Online/Dedibox VPS by its numeric server id. Optional reason is logged in the console."""
+    return _run(lambda: _online_client().reboot_server(server_id, reason))
 
 
 def main() -> None:

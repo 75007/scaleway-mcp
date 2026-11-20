@@ -3,7 +3,7 @@ import json
 import httpx
 import pytest
 
-from scaleway_mcp.client import ScalewayClient, ScalewayError
+from scaleway_mcp.client import OnlineClient, ScalewayClient, ScalewayError
 
 
 def make_client(handler) -> ScalewayClient:
@@ -139,3 +139,47 @@ def test_dedibox_reboot_normal_sends_empty_body():
     client.dedibox_reboot_server("fr-par-1", "123")
 
     assert seen["body"] == {}
+
+
+def make_online_client(handler) -> OnlineClient:
+    return OnlineClient(api_token="online-token", transport=httpx.MockTransport(handler))
+
+
+def test_online_list_servers_uses_bearer_token():
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["path"] = request.url.path
+        seen["auth"] = request.headers.get("Authorization")
+        return httpx.Response(200, json=[{"id": 123, "name": "hermes-vps"}])
+
+    client = make_online_client(handler)
+    data = client.list_servers()
+
+    assert seen["path"] == "/api/v1/server"
+    assert seen["auth"] == "Bearer online-token"
+    assert data[0]["name"] == "hermes-vps"
+
+
+def test_online_reboot_posts_reason():
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["method"] = request.method
+        seen["path"] = request.url.path
+        seen["body"] = json.loads(request.read().decode() or "{}")
+        return httpx.Response(200, json={"reboot": True})
+
+    client = make_online_client(handler)
+    client.reboot_server("123", reason="maintenance")
+
+    assert seen["method"] == "POST"
+    assert seen["path"] == "/api/v1/server/123/reboot"
+    assert seen["body"] == {"reason": "maintenance"}
+
+
+def test_online_from_env_requires_token(monkeypatch):
+    monkeypatch.delenv("DEDIBOX_API_TOKEN", raising=False)
+    monkeypatch.delenv("ONLINE_API_TOKEN", raising=False)
+    with pytest.raises(ScalewayError, match="DEDIBOX_API_TOKEN"):
+        OnlineClient.from_env()

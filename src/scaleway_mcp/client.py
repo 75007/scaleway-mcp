@@ -7,6 +7,7 @@ from typing import Any
 import httpx
 
 API_BASE_URL = "https://api.scaleway.com"
+ONLINE_API_BASE_URL = "https://api.online.net/api/v1"
 DEFAULT_ZONE = "fr-par-1"
 
 SERVER_ACTIONS = ("poweron", "poweroff", "reboot", "stop_in_place", "backup")
@@ -127,3 +128,71 @@ class ScalewayClient:
     def dedibox_reboot_server(self, zone: str, server_id: str, boot: str | None = None) -> Any:
         body = {"boot": boot} if boot else {}
         return self.request("POST", f"/dedibox/v1/zones/{zone}/servers/{server_id}/reboot", json=body)
+
+
+@dataclass
+class OnlineClient:
+    """Client for the legacy Online/Dedibox API (api.online.net) covering VPS and Dedibox servers.
+
+    Authenticates with the private API token generated in the console
+    (console.online.net > API > Access), sent as a Bearer token.
+    """
+
+    api_token: str
+    base_url: str = ONLINE_API_BASE_URL
+    timeout: float = 30.0
+    transport: httpx.BaseTransport | None = None
+
+    @classmethod
+    def from_env(cls, transport: httpx.BaseTransport | None = None) -> "OnlineClient":
+        token = os.environ.get("DEDIBOX_API_TOKEN") or os.environ.get("ONLINE_API_TOKEN")
+        if not token:
+            raise ScalewayError(
+                "DEDIBOX_API_TOKEN is not set. Generate a private API token in the Dedibox "
+                "console (console.online.net > API > Access) and export it as DEDIBOX_API_TOKEN."
+            )
+        return cls(api_token=token, transport=transport)
+
+    def request(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: dict[str, Any] | None = None,
+        json: dict[str, Any] | None = None,
+    ) -> Any:
+        headers = {
+            "Authorization": f"Bearer {self.api_token}",
+            "Content-Type": "application/json",
+        }
+        with httpx.Client(
+            base_url=self.base_url,
+            headers=headers,
+            timeout=self.timeout,
+            transport=self.transport,
+        ) as http:
+            response = http.request(method, path, params=params, json=json)
+        if response.status_code >= 400:
+            try:
+                payload: Any = response.json()
+            except ValueError:
+                payload = response.text
+            detail = payload.get("message") if isinstance(payload, dict) else payload
+            raise ScalewayError(
+                f"Online/Dedibox API error {response.status_code}: {detail}",
+                status=response.status_code,
+                payload=payload,
+            )
+        if response.status_code == 204 or not response.content:
+            return None
+        return response.json()
+
+    def list_servers(self) -> Any:
+        return self.request("GET", "/server")
+
+    def get_server(self, server_id: str) -> Any:
+        return self.request("GET", f"/server/{server_id}")
+
+    def reboot_server(self, server_id: str, reason: str | None = None) -> Any:
+        body = {"reason": reason} if reason else {}
+        return self.request("POST", f"/server/{server_id}/reboot", json=body)
