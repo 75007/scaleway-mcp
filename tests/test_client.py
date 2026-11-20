@@ -93,3 +93,49 @@ def test_from_env_reads_credentials(monkeypatch):
     assert client.secret_key == "env-secret"
     assert client.access_key == "SCWENV"
     assert client.project_id == "proj-env"
+
+
+def test_dedibox_list_servers_path_and_auth():
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["path"] = request.url.path
+        seen["token"] = request.headers.get("X-Auth-Token")
+        return httpx.Response(200, json={"servers": [{"id": 123, "hostname": "sd-123"}], "total_count": 1})
+
+    client = make_client(handler)
+    data = client.dedibox_list_servers("fr-par-1")
+
+    assert seen["path"] == "/dedibox/v1/zones/fr-par-1/servers"
+    assert seen["token"] == "test-secret"
+    assert data["servers"][0]["id"] == 123
+
+
+def test_dedibox_reboot_posts_boot_param():
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["method"] = request.method
+        seen["path"] = request.url.path
+        seen["body"] = json.loads(request.read().decode() or "{}")
+        return httpx.Response(200, json={})
+
+    client = make_client(handler)
+    client.dedibox_reboot_server("fr-par-1", "123", "rescue")
+
+    assert seen["method"] == "POST"
+    assert seen["path"] == "/dedibox/v1/zones/fr-par-1/servers/123/reboot"
+    assert seen["body"] == {"boot": "rescue"}
+
+
+def test_dedibox_reboot_normal_sends_empty_body():
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["body"] = json.loads(request.read().decode() or "{}")
+        return httpx.Response(200, json={})
+
+    client = make_client(handler)
+    client.dedibox_reboot_server("fr-par-1", "123")
+
+    assert seen["body"] == {}

@@ -114,3 +114,16 @@ class ScalewayClient:
         if self.project_id:
             params["project"] = self.project_id
         return self.request("GET", self._zone_path(zone, "/images"), params=params or None)
+
+    def dedibox_list_zones(self) -> Any:
+        return self.request("GET", "/dedibox/v1/zones")
+
+    def dedibox_list_servers(self, zone: str) -> Any:
+        return self.request("GET", f"/dedibox/v1/zones/{zone}/servers")
+
+    def dedibox_get_server(self, zone: str, server_id: str) -> Any:
+        return self.request("GET", f"/dedibox/v1/zones/{zone}/servers/{server_id}")
+
+    def dedibox_reboot_server(self, zone: str, server_id: str, boot: str | None = None) -> Any:
+        body = {"boot": boot} if boot else {}
+        return self.request("POST", f"/dedibox/v1/zones/{zone}/servers/{server_id}/reboot", json=body)

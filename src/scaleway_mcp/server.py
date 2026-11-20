@@ -94,6 +94,30 @@ def list_images(zone: str | None = None) -> dict[str, Any]:
     return _run(lambda: _client().list_images(_zone(zone)))
 
 
+@mcp.tool()
+def dedibox_list_zones() -> dict[str, Any]:
+    """List the zones available for the Dedibox (dedicated server) API."""
+    return _run(lambda: _client().dedibox_list_zones())
+
+
+@mcp.tool()
+def dedibox_list_servers(zone: str | None = None) -> dict[str, Any]:
+    """List all Dedibox dedicated servers in a zone. Uses the same SCW credentials as the Instance API."""
+    return _run(lambda: _client().dedibox_list_servers(_zone(zone)))
+
+
+@mcp.tool()
+def dedibox_get_server(server_id: str, zone: str | None = None) -> dict[str, Any]:
+    """Get details of one Dedibox server (hostname, IPs, status) by its server id."""
+    return _run(lambda: _client().dedibox_get_server(_zone(zone), server_id))
+
+
+@mcp.tool()
+def dedibox_reboot_server(server_id: str, zone: str | None = None, rescue: bool = False) -> dict[str, Any]:
+    """Reboot a Dedibox server. Set rescue=true to reboot into rescue mode instead of normal boot."""
+    return _run(lambda: _client().dedibox_reboot_server(_zone(zone), server_id, "rescue" if rescue else None))
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Scaleway MCP server")
     parser.add_argument(

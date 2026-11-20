@@ -15,6 +15,10 @@ EXPECTED_TOOLS = {
     "list_volumes",
     "list_snapshots",
     "list_images",
+    "dedibox_list_zones",
+    "dedibox_list_servers",
+    "dedibox_get_server",
+    "dedibox_reboot_server",
 }
 
 
